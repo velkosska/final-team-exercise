@@ -1,25 +1,25 @@
-// media_manager.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "media_manager.h"
 
+// Prompts the user until they provide valid input based on the given validation function.
 void getValidInput(const char *prompt, char *buffer, int size, int (*validate)(const char *)) {
     do {
         printf("%s", prompt);
         if (fgets(buffer, size, stdin) == NULL) {
-            buffer[0] = '\0';
+            buffer[0] = '\0'; // In case of input failure, clear buffer
             return;
         }
-        strtok(buffer, "\n");  // Remove newline
+        strtok(buffer, "\n");  // Remove newline character
         if (!validate(buffer)) {
             printf("Invalid input, please try again.\n");
         }
     } while (!validate(buffer));
 }
 
+// Checks if the input is not just empty or made up of spaces
 int validateInput(const char *input) {
     if (input == NULL) return 0;
     while (*input) {
@@ -30,6 +30,7 @@ int validateInput(const char *input) {
     return 0;
 }
 
+// Validates that the media type is one of the allowed categories
 int validateMediaType(const char *input) {
     if (!validateInput(input)) return 0;
     char temp[MAX_STRING];
@@ -42,6 +43,7 @@ int validateMediaType(const char *input) {
             strcmp(temp, "show") == 0);
 }
 
+// Checks if the link starts with http://, https://, or www.
 int validateLink(const char *input) {
     if (!validateInput(input)) return 0;
     return (strncmp(input, "http://", 7) == 0 ||
@@ -49,12 +51,14 @@ int validateLink(const char *input) {
             strncmp(input, "www.", 4) == 0);
 }
 
+// Converts a string to lowercase (used to make validation and comparison easier)
 void toLowerCase(char *str) {
     for (int i = 0; str[i]; i++) {
         str[i] = tolower((unsigned char)str[i]);
     }
 }
 
+// Saves a new entry to the file by collecting user input and writing it in CSV format
 void saveEntry(const char *filename) {
     FILE *fp = fopen(filename, "a");
     if (!fp) {
@@ -64,7 +68,7 @@ void saveEntry(const char *filename) {
 
     struct MediaEntry entry;
 
-    // CSV file order: Title, Type, Author, Duration, Genre, Comment, Link
+    // Get validated input for each field
     getValidInput("Enter title: ", entry.title, MAX_STRING, validateInput);
     getValidInput("Enter type (Movie, Book, Album, Show): ", entry.type, MAX_STRING, validateMediaType);
     getValidInput("Enter author/director/artist: ", entry.author, MAX_STRING, validateInput);
@@ -73,7 +77,7 @@ void saveEntry(const char *filename) {
     getValidInput("Enter comments: ", entry.comment, MAX_STRING, validateInput);
     getValidInput("Enter link (e.g., http:// or www.): ", entry.link, MAX_STRING, validateLink);
 
-    // Write fields in the order: Title, Type, Author, Duration, Genre, Comment, Link
+    // Write the entry to file in CSV format
     fprintf(fp, "%s,%s,%s,%s,%s,%s,%s\n",
             entry.title, entry.type, entry.author,
             entry.duration, entry.genre, entry.comment, entry.link);
@@ -81,6 +85,7 @@ void saveEntry(const char *filename) {
     printf("Entry saved successfully!\n");
 }
 
+// Edits an existing entry based on user selection and input
 void editEntry(const char *filename) {
     struct MediaEntry entries[MAX_ENTRIES];
     int count = 0;
@@ -92,7 +97,7 @@ void editEntry(const char *filename) {
         return;
     }
 
-    // Expect CSV order: Title, Type, Author, Duration, Genre, Comment, Link
+    // Load all entries from file into memory
     while (fgets(line, sizeof(line), fp) && count < MAX_ENTRIES) {
         int fieldsFilled = sscanf(line,
             "%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^\n]",
@@ -109,15 +114,15 @@ void editEntry(const char *filename) {
         return;
     }
 
+    // Display all entries to let the user choose one to edit
     printf("\nExisting Entries:\n");
     for (int i = 0; i < count; i++) {
-        // Format: Title [Type] by Author
         printf("%d. %s [%s] by %s\n", i + 1, entries[i].title, entries[i].type, entries[i].author);
     }
     printf("Enter the entry number to edit (0 to cancel): ");
     int choice;
     scanf("%d", &choice);
-    getchar();  // Clear newline
+    getchar();  // Clear leftover newline character
 
     if (choice <= 0 || choice > count) {
         printf("Editing cancelled.\n");
@@ -127,64 +132,28 @@ void editEntry(const char *filename) {
     int index = choice - 1;
     char buffer[MAX_STRING];
 
+    // Allow user to update each field, or press Enter to skip
     printf("Press Enter without typing to keep the current value.\n");
 
-    printf("Current Title: %s\n", entries[index].title);
-    printf("Enter new title: ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateInput(buffer))
-            strncpy(entries[index].title, buffer, MAX_STRING);
-    }
+    #define UPDATE_FIELD(promptText, currentValue, validateFunc) do { \
+        printf("Current %s: %s\n", promptText, currentValue); \
+        printf("Enter new %s: ", promptText); \
+        if (fgets(buffer, MAX_STRING, stdin)) { \
+            strtok(buffer, "\n"); \
+            if (validateFunc(buffer)) \
+                strncpy(currentValue, buffer, MAX_STRING); \
+        } \
+    } while(0)
 
-    printf("Current Type: %s\n", entries[index].type);
-    printf("Enter new type (Movie, Book, Album, Show): ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateMediaType(buffer))
-            strncpy(entries[index].type, buffer, MAX_STRING);
-    }
+    UPDATE_FIELD("title", entries[index].title, validateInput);
+    UPDATE_FIELD("type", entries[index].type, validateMediaType);
+    UPDATE_FIELD("author/director/artist", entries[index].author, validateInput);
+    UPDATE_FIELD("duration/pages", entries[index].duration, validateInput);
+    UPDATE_FIELD("genre", entries[index].genre, validateInput);
+    UPDATE_FIELD("comments", entries[index].comment, validateInput);
+    UPDATE_FIELD("link", entries[index].link, validateLink);
 
-    printf("Current Author/Director/Artist: %s\n", entries[index].author);
-    printf("Enter new author/director/artist: ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateInput(buffer))
-            strncpy(entries[index].author, buffer, MAX_STRING);
-    }
-
-    printf("Current Duration/Pages: %s\n", entries[index].duration);
-    printf("Enter new duration/pages: ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateInput(buffer))
-            strncpy(entries[index].duration, buffer, MAX_STRING);
-    }
-
-    printf("Current Genre: %s\n", entries[index].genre);
-    printf("Enter new genre: ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateInput(buffer))
-            strncpy(entries[index].genre, buffer, MAX_STRING);
-    }
-
-    printf("Current Comments: %s\n", entries[index].comment);
-    printf("Enter new comments: ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateInput(buffer))
-            strncpy(entries[index].comment, buffer, MAX_STRING);
-    }
-
-    printf("Current Link: %s\n", entries[index].link);
-    printf("Enter new link (e.g., http:// or www.): ");
-    if (fgets(buffer, MAX_STRING, stdin)) {
-        strtok(buffer, "\n");
-        if (validateLink(buffer))
-            strncpy(entries[index].link, buffer, MAX_STRING);
-    }
-
+    // Overwrite the file with updated entries
     fp = fopen(filename, "w");
     if (!fp) {
         perror("Failed to open file for writing");
@@ -199,6 +168,7 @@ void editEntry(const char *filename) {
     printf("Entry updated successfully!\n");
 }
 
+// Reads entries from the file and allows the user to search by a specific field
 void readEntries(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
@@ -207,8 +177,8 @@ void readEntries(const char *filename) {
     }
 
     int choice;
+    // Prompt user to choose a field to search by
     printf("Choose the field to search by:\n");
-    // Display field names according to CSV order
     printf("1. Title\n2. Type\n3. Author\n4. Duration/Pages\n5. Genre\n6. Comment\n7. Link\n");
     printf("Enter your choice (1-7): ");
     if (scanf("%d", &choice) != 1) {
@@ -216,7 +186,7 @@ void readEntries(const char *filename) {
         fclose(fp);
         return;
     }
-    getchar();  // Clear leftover newline
+    getchar();  // Remove leftover newline
 
     if (choice < 1 || choice > 7) {
         printf("Invalid field choice. Exiting.\n");
@@ -224,68 +194,50 @@ void readEntries(const char *filename) {
         return;
     }
 
+    // Ask for search term and clean it
     char searchTerm[MAX_STRING];
     printf("Enter the search term: ");
     if (!fgets(searchTerm, MAX_STRING, stdin)) {
-         printf("Error reading search term. Exiting.\n");
-         fclose(fp);
-         return;
+        printf("Error reading search term. Exiting.\n");
+        fclose(fp);
+        return;
     }
-    // Remove newline and trim extra spaces
     searchTerm[strcspn(searchTerm, "\n")] = '\0';
     char *start = searchTerm;
-    while (isspace((unsigned char)*start))
-        start++;
+    while (isspace((unsigned char)*start)) start++;
     char *end = start + strlen(start) - 1;
-    while (end >= start && isspace((unsigned char)*end))
-        *end-- = '\0';
+    while (end >= start && isspace((unsigned char)*end)) *end-- = '\0';
     memmove(searchTerm, start, strlen(start) + 1);
     toLowerCase(searchTerm);
 
     int matchCount = 0;
     char line[1024];
 
+    // Read each entry and check if the selected field contains the search term
     while (fgets(line, sizeof(line), fp) != NULL) {
-        // Skip empty or very short lines
-        if (strlen(line) < 2)
-            continue;
+        if (strlen(line) < 2) continue;
 
         struct MediaEntry entry;
         int fieldsFilled = sscanf(line,
             "%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^\n]",
             entry.title, entry.type, entry.author,
             entry.duration, entry.genre, entry.comment, entry.link);
-        if (fieldsFilled != 7)
-            continue;
+        if (fieldsFilled != 7) continue;
 
         char fieldValue[MAX_STRING] = "";
         switch (choice) {
-            case 1:
-                strncpy(fieldValue, entry.title, MAX_STRING);
-                break;
-            case 2:
-                strncpy(fieldValue, entry.type, MAX_STRING);
-                break;
-            case 3:
-                strncpy(fieldValue, entry.author, MAX_STRING);
-                break;
-            case 4:
-                strncpy(fieldValue, entry.duration, MAX_STRING);
-                break;
-            case 5:
-                strncpy(fieldValue, entry.genre, MAX_STRING);
-                break;
-            case 6:
-                strncpy(fieldValue, entry.comment, MAX_STRING);
-                break;
-            case 7:
-                strncpy(fieldValue, entry.link, MAX_STRING);
-                break;
+            case 1: strncpy(fieldValue, entry.title, MAX_STRING); break;
+            case 2: strncpy(fieldValue, entry.type, MAX_STRING); break;
+            case 3: strncpy(fieldValue, entry.author, MAX_STRING); break;
+            case 4: strncpy(fieldValue, entry.duration, MAX_STRING); break;
+            case 5: strncpy(fieldValue, entry.genre, MAX_STRING); break;
+            case 6: strncpy(fieldValue, entry.comment, MAX_STRING); break;
+            case 7: strncpy(fieldValue, entry.link, MAX_STRING); break;
         }
-        fieldValue[MAX_STRING - 1] = '\0';
+
         toLowerCase(fieldValue);
 
-        if (strstr(fieldValue, searchTerm) != NULL) {
+        if (strstr(fieldValue, searchTerm)) {
             matchCount++;
             printf("\nMatch #%d:\n", matchCount);
             printf("Title: %s\nType: %s\nAuthor: %s\nDuration/Pages: %s\nGenre: %s\nComments: %s\nLink: %s\n",
@@ -293,6 +245,7 @@ void readEntries(const char *filename) {
                    entry.genre, entry.comment, entry.link);
             printf("---------------------------------------------\n");
 
+            // Let user decide whether to keep searching
             char option[16];
             while (1) {
                 printf("Choose an action:\n");
@@ -305,9 +258,8 @@ void readEntries(const char *filename) {
                     return;
                 }
                 option[strcspn(option, "\n")] = '\0';
-                if (strcmp(option, "1") == 0) {
-                    break;
-                } else if (strcmp(option, "2") == 0) {
+                if (strcmp(option, "1") == 0) break;
+                else if (strcmp(option, "2") == 0) {
                     printf("Exiting reading mode. Thank you!\n");
                     fclose(fp);
                     return;
