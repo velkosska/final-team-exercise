@@ -47,4 +47,8 @@ void toLowerCase(char *str);
 // Prompts the user for input, validates it using the provided function, and stores it in buffer
 void getValidInput(const char *prompt, char *buffer, int size, int (*validate)(const char *));
 
+//Deletion function
+
+void deleteEntry(const char *filename);
+
 #endif

@@ -277,3 +277,70 @@ void readEntries(const char *filename) {
 
     fclose(fp);
 }
+void deleteEntry(const char *filename) {
+    struct MediaEntry entries[MAX_ENTRIES];
+    int count = 0;
+    char line[1024];
+
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        perror("Failed to open file for reading");
+        return;
+    }
+
+    while (fgets(line, sizeof(line), fp) && count < MAX_ENTRIES) {
+        int fieldsFilled = sscanf(line,
+            "%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^,],%255[^\n]",
+            entries[count].title, entries[count].type, entries[count].author,
+            entries[count].duration, entries[count].genre, entries[count].comment, entries[count].link);
+        if (fieldsFilled == 7) {
+            count++;
+        }
+    }
+    fclose(fp);
+
+    if (count == 0) {
+        printf("No entries found to delete.\n");
+        return;
+    }
+
+    printf("\nExisting Entries:\n");
+    for (int i = 0; i < count; i++) {
+        printf("%d. %s [%s] by %s\n", i + 1, entries[i].title, entries[i].type, entries[i].author);
+    }
+
+    printf("Enter the entry number to delete (0 to cancel): ");
+    int choice;
+    scanf("%d", &choice);
+    getchar();
+
+    if (choice <= 0 || choice > count) {
+        printf("Deletion cancelled.\n");
+        return;
+    }
+
+    int indexToDelete = choice - 1;
+
+    printf("Are you sure you want to delete '%s' by %s? (y/n): ", entries[indexToDelete].title, entries[indexToDelete].author);
+    char confirm[4];
+    fgets(confirm, sizeof(confirm), stdin);
+    if (tolower(confirm[0]) != 'y') {
+        printf("Deletion cancelled.\n");
+        return;
+    }
+
+    fp = fopen(filename, "w");
+    if (!fp) {
+        perror("Failed to open file for writing");
+        return;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (i == indexToDelete) continue;
+        fprintf(fp, "%s,%s,%s,%s,%s,%s,%s\n",
+                entries[i].title, entries[i].type, entries[i].author,
+                entries[i].duration, entries[i].genre, entries[i].comment, entries[i].link);
+    }
+    fclose(fp);
+    printf("Entry deleted successfully.\n");
+}

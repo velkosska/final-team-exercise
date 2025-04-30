@@ -40,14 +40,17 @@ int main(int argc, char *argv[]) {
         printf("\nSaving Mode:\n");
         printf("1. Create New Entry\n");
         printf("2. Edit Existing Entry\n");
+        printf("3. Delete Entry\n"); 
         printf("Enter your choice: ");
         scanf("%d", &submode);
         getchar();  // Clear leftover newline
 
         if (submode == 1) {
-            saveEntry(filename); // Add a new media entry
+            saveEntry(filename);
         } else if (submode == 2) {
-            editEntry(filename); // Edit an existing entry
+            editEntry(filename);
+        } else if (submode == 3) {
+            deleteEntry(filename);
         } else {
             printf("Invalid choice. Exiting.\n");
         }
